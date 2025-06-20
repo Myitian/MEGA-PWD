@@ -100,7 +100,6 @@ const OBSERVER_CONFIG = { attributes: true, childList: true, subtree: true };
 GM_registerMenuCommand("PWD", () => prompt("Value", mName));
 let forceRefresh = false;
 let mName = null;
-let element = null;
 let baseTitle = null;
 /** @type {MutationObserver|null} */
 let observer = null;
@@ -111,7 +110,7 @@ window.addEventListener("hashchange", e => main(new URL(e.newURL)));
 const originalPushState = history.pushState;
 history.pushState = (data, unused, url) => {
     main(new URL(url, window.location.href));
-    return originalPushState.call(history, data, unused, url)
+    return originalPushState.call(history, data, unused, url);
 }
 main(window.location);
 
@@ -223,6 +222,7 @@ async function main(url) {
                     };
                     break;
             }
+            let element = null;
             observer = new MutationObserver(config.callback);
             if (mode === "file" || mode === "folder") {
                 while (!(element = document.querySelector(".dlkey-dialog"))) {
