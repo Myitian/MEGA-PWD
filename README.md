@@ -1,2 +1,2 @@
 # MEGA-PWD
-Show current location in title when using MEGA cloud storage.
+A userscript that shows current location in title when using MEGA cloud storage.
