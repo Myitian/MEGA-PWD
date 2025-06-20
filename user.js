@@ -53,7 +53,7 @@ function folderCallback() {
     if (title !== newTitle) {
         document.title = newTitle;
     }
-};
+}
 /** @param {number} t */
 function sleep(t) {
     return new Promise((rs, _) => setTimeout(rs, t));
@@ -103,43 +103,43 @@ async function main() {
                     config = {
                         selector: "#password-dialog-title",
                         callback: simpleCallback.bind(null, "#password-dialog-title")
-                    }
+                    };
                     break;
                 case "file":
                     config = {
                         selector: ".title-block",
                         callback: simpleCallback.bind(null, ".title-block")
-                    }
+                    };
                     break;
                 case "folder":
                     config = {
                         selector: ".fm-right-files-block .fm-breadcrumbs-wrapper",
                         callback: folderCallback
-                    }
+                    };
                     break;
                 case "fm-contacts":
                     config = {
                         selector: ".contacts-navigation",
                         callback: simpleCallback.bind(null, ".contacts-navigation .active")
-                    }
+                    };
                     break;
                 case "fm-chat":
                     config = {
                         selector: ".lhp-nav",
                         callback: simpleCallback.bind(null, ".lhp-nav-container.active")
-                    }
+                    };
                     break;
                 case "fm-pwm":
                     config = {
                         selector: ".primary-text",
                         callback: simpleCallback.bind(null, ".primary-text")
-                    }
+                    };
                     break;
                 case "fm":
                     config = {
                         selector: ".menu.ps",
                         callback: simpleCallback.bind(null, ".mega-component.active")
-                    }
+                    };
                     break;
             }
             while (!(element = document.querySelector(config.selector))) {
