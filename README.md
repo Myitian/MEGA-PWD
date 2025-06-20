@@ -1,4 +1,6 @@
 # MEGA-PWD
+[![Greasy Fork Version](https://img.shields.io/greasyfork/v/540112?style=for-the-badge&logo=greasyfork)](https://greasyfork.org/scripts/540112)
+
 使用MEGA云存储时在标题中显示当前位置的用户脚本。
 
 A userscript that shows current location in title when using MEGA cloud storage.
