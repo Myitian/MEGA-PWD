@@ -5,24 +5,41 @@
 // @source       https://github.com/Myitian/MEGA-PWD
 // @author       Myitian
 // @license      MIT
-// @version      0.2
+// @version      0.3
 // @match        https://mega.nz/*
 // @grant        GM_registerMenuCommand
 // ==/UserScript==
 
-/** @param {string} selector */
-function simpleCallback(selector) {
+/** @param {string[]} selectors */
+function simpleCallback(...selectors) {
     const title = document.title.trim();
     if (title.length === 0) {
+        return;
+    }
+    const dlkey = document.querySelector(".dlkey-dialog:not(.hidden)");
+    if (dlkey) {
+        /** @type {HTMLElement} */
+        const element = dlkey.querySelector("#dlkey-dialog-title");
+        mName = element?.innerText.replace("\n", "") ?? "";
+    } else {
+        mName = "";
+        for (const selector of selectors) {
+            /** @type {HTMLElement} */
+            const element = document.querySelector(selector);
+            if (element) {
+                if (mName) {
+                    mName += "/";
+                }
+                mName += element.innerText.trim().replace("\n", "");
+            }
+        }
+    }
+    if (!mName) {
         return;
     }
     if (baseTitle === null || /^[^\|]+MEGA[^\|]+$/.test(title)) {
         baseTitle = title;
     }
-    const dlkey = document.querySelector(".dlkey-dialog:not(.hidden)");
-    /** @type {HTMLElement} */
-    const element = dlkey ? dlkey.querySelector("#dlkey-dialog-title") : document.querySelector(selector);
-    mName = element?.innerText.replace("\n", "") ?? "";
     const newTitle = `${mName} | ${baseTitle}`.trim();
     if (title !== newTitle) {
         document.title = newTitle;
@@ -30,9 +47,6 @@ function simpleCallback(selector) {
 }
 function folderCallback() {
     const title = document.title.trim();
-    if (baseTitle === null || /^[^\|]+MEGA[^\|]+$/.test(title)) {
-        baseTitle = title;
-    }
     if (title.length === 0) {
         return;
     }
@@ -63,17 +77,23 @@ function folderCallback() {
             }
         }
     }
+    if (!mName) {
+        return;
+    }
+    if (baseTitle === null || /^[^\|]+MEGA[^\|]+$/.test(title)) {
+        baseTitle = title;
+    }
     const newTitle = `${mName} | ${baseTitle}`.trim();
     if (title !== newTitle) {
         document.title = newTitle;
     }
 }
 /** @param {number} t */
-function sleep(t) {
+function delay(t) {
     return new Promise((rs, _) => setTimeout(rs, t));
 }
 
-/** @typedef {"password"|"file"|"folder"|"fm"|"fm-chat"|"fm-contacts"|"fm-pwm"|"fm-account"|"fm-shares"|null} Mode */
+/** @typedef {"password"|"file"|"folder"|"fm"|"fm-chat"|"fm-contacts"|"fm-pwm"|"fm-account"|"fm-shares"|"fm-media"|"fm-dashboard"|null} Mode */
 
 /** @type {MutationObserverInit} */
 const OBSERVER_CONFIG = { attributes: true, childList: true, subtree: true };
@@ -86,32 +106,45 @@ let baseTitle = null;
 let observer = null;
 /** @type {Mode} */
 let prevMode = null;
-main();
 
-async function main() {
+window.addEventListener("hashchange", e => main(new URL(e.newURL)));
+const originalPushState = history.pushState;
+history.pushState = (data, unused, url) => {
+    main(new URL(url, window.location.href));
+    return originalPushState.call(history, data, unused, url)
+}
+main(window.location);
+
+/** @param {URL|Location} url */
+async function main(url) {
     /** @type {Mode} */
     let mode = null;
-    if (location.hash.startsWith("#P!")) {
+    if (url.hash.startsWith("#P!")) {
         mode = "password";
-    } else if (location.pathname.startsWith("/file/")) {
+    } else if (url.pathname.startsWith("/file/")) {
         mode = "file";
-    } else if (location.pathname.startsWith("/folder/")
-        || location.pathname.match(/^\/fm(?:\/(?:[0-9A-Za-z]{8})?)?$/)) {
+    } else if (url.pathname.startsWith("/folder/")
+        || url.pathname.match(/^\/fm(?:\/(?:[0-9A-Za-z]{8})?)?$/)) {
         mode = "folder";
-    } else if (location.pathname.startsWith("/fm/chat/contacts")) {
+    } else if (url.pathname.startsWith("/fm/chat/contacts")) {
         mode = "fm-contacts";
-    } else if (location.pathname.startsWith("/fm/chat")) {
+    } else if (url.pathname.startsWith("/fm/chat")) {
         mode = "fm-chat";
-    } else if (location.pathname.startsWith("/fm/pwm")) {
+    } else if (url.pathname.startsWith("/fm/pwm")) {
         mode = "fm-pwm";
-    } else if (location.pathname.startsWith("/fm/account")) {
+    } else if (url.pathname.startsWith("/fm/account")) {
         mode = "fm-account";
-    } else if (location.pathname.startsWith("/fm/shares")
-        || location.pathname.startsWith("/fm/out-shares")
-        || location.pathname.startsWith("/fm/public-links")
-        || location.pathname.startsWith("/fm/file-requests")) {
+    } else if (url.pathname.startsWith("/fm/shares")
+        || url.pathname.startsWith("/fm/out-shares")
+        || url.pathname.startsWith("/fm/public-links")
+        || url.pathname.startsWith("/fm/file-requests")) {
         mode = "fm-shares";
-    } else if (location.pathname.startsWith("/fm/")) {
+    } else if (url.pathname.startsWith("/fm/photos")
+        || url.pathname.startsWith("/fm/albums")) {
+        mode = "fm-media";
+    } else if (url.pathname.startsWith("/fm/dashboard")) {
+        mode = "fm-dashboard";
+    } else if (url.pathname.startsWith("/fm/")) {
         mode = "fm";
     }
     if (mode !== prevMode || forceRefresh) {
@@ -155,20 +188,32 @@ async function main() {
                     break;
                 case "fm-pwm":
                     config = {
-                        selector: ".primary-text",
-                        callback: () => simpleCallback(".primary-text")
+                        selector: ".top-nav .primary-text",
+                        callback: () => simpleCallback(".top-nav .primary-text")
                     };
                     break;
                 case "fm-account":
                     config = {
                         selector: ".account .lp-content-wrap",
-                        callback: () => simpleCallback(".account .settings-button.active .head-title")
+                        callback: () => simpleCallback(".account .lp-header", ".account .settings-button.active .head-title")
                     };
                     break;
                 case "fm-shares":
                     config = {
                         selector: ".shares-tabs-bl",
-                        callback: () => simpleCallback(".shares-tab-lnk.active")
+                        callback: () => simpleCallback(".mega-component.active .primary-text", ".shares-tab-lnk.active")
+                    };
+                    break;
+                case "fm-media":
+                    config = {
+                        selector: "#media-tabs",
+                        callback: () => simpleCallback(".mega-component.active .primary-text", "#media-tabs .active")
+                    };
+                    break;
+                case "fm-dashboard":
+                    config = {
+                        selector: ".to-my-profile .primary-text",
+                        callback: () => simpleCallback(".to-my-profile .primary-text")
                     };
                     break;
                 case "fm":
@@ -181,7 +226,7 @@ async function main() {
             observer = new MutationObserver(config.callback);
             if (mode === "file" || mode === "folder") {
                 while (!(element = document.querySelector(".dlkey-dialog"))) {
-                    await sleep(50);
+                    await delay(50);
                 }
                 config.callback();
                 observer.observe(element, OBSERVER_CONFIG);
@@ -198,12 +243,11 @@ async function main() {
                 }
             }
             while (!(element = document.querySelector(config.selector))) {
-                await sleep(50);
+                await delay(50);
             }
             config.callback();
             observer.observe(document.querySelector("title"), OBSERVER_CONFIG);
             observer.observe(element, OBSERVER_CONFIG);
         }
     }
-    setTimeout(main, 100);
 }
