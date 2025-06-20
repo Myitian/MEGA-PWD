@@ -12,40 +12,54 @@
 
 /** @param {string} selector */
 function simpleCallback(selector) {
-    const title = document.querySelector("title").innerText.trim();
+    const title = document.title.trim();
+    if (title.length === 0) {
+        return;
+    }
     if (baseTitle === null || /^[^\|]+MEGA[^\|]+$/.test(title)) {
         baseTitle = title;
     }
+    const dlkey = document.querySelector(".dlkey-dialog:not(.hidden)");
     /** @type {HTMLElement} */
-    const element = document.querySelector(selector);
-    mName = element?.innerText.replace("\n", "");
+    const element = dlkey ? dlkey.querySelector("#dlkey-dialog-title") : document.querySelector(selector);
+    mName = element?.innerText.replace("\n", "") ?? "";
     const newTitle = `${mName} | ${baseTitle}`.trim();
     if (title !== newTitle) {
         document.title = newTitle;
     }
 }
 function folderCallback() {
-    const title = document.querySelector("title").innerText.trim();
+    const title = document.title.trim();
     if (baseTitle === null || /^[^\|]+MEGA[^\|]+$/.test(title)) {
         baseTitle = title;
     }
-    mName = "";
-    /** @type {NodeListOf<HTMLElement>} */
-    const es = document.querySelectorAll(".fm-right-files-block .breadcrumb-dropdown span");
-    if (es.length > 0) {
-        for (const e of es) {
-            mName = `${e.innerText.trim()}/${mName}`;
-        }
+    if (title.length === 0) {
+        return;
+    }
+    const dlkey = document.querySelector(".dlkey-dialog:not(.hidden)");
+    if (dlkey) {
         /** @type {HTMLElement} */
-        const element = document.querySelector(".fm-right-files-block .fm-breadcrumbs-block a:last-child .simpletip-tc");
-        mName += element?.innerText;
+        const dlkeyTitle = dlkey.querySelector("#dlkey-dialog-title");
+        mName = dlkeyTitle?.innerText.replace("\n", "") ?? "";
     } else {
+        mName = "";
         /** @type {NodeListOf<HTMLElement>} */
-        const es2 = document.querySelectorAll(".fm-right-files-block .fm-breadcrumbs-block .simpletip-tc");
-        for (let i = 0; i < es2.length; i++) {
-            mName += es2[i].innerText.trim();
-            if (i < es2.length - 1) {
-                mName += "/";
+        const es = document.querySelectorAll(".fm-right-files-block .breadcrumb-dropdown span");
+        if (es.length > 0) {
+            for (const e of es) {
+                mName = `${e.innerText.trim()}/${mName}`;
+            }
+            /** @type {HTMLElement} */
+            const element = document.querySelector(".fm-right-files-block .fm-breadcrumbs-block a:last-child .simpletip-tc");
+            mName += element?.innerText;
+        } else {
+            /** @type {NodeListOf<HTMLElement>} */
+            const es2 = document.querySelectorAll(".fm-right-files-block .fm-breadcrumbs-block .simpletip-tc");
+            for (let i = 0; i < es2.length; i++) {
+                mName += es2[i].innerText.trim();
+                if (i < es2.length - 1) {
+                    mName += "/";
+                }
             }
         }
     }
@@ -59,10 +73,12 @@ function sleep(t) {
     return new Promise((rs, _) => setTimeout(rs, t));
 }
 
-/** @typedef {"password"|"file"|"folder"|"fm"|"fm-chat"|"fm-contacts"|"fm-pwm"|null} Mode */
+/** @typedef {"password"|"file"|"folder"|"fm"|"fm-chat"|"fm-contacts"|"fm-pwm"|"fm-account"|"fm-shares"|null} Mode */
 
+/** @type {MutationObserverInit} */
 const OBSERVER_CONFIG = { attributes: true, childList: true, subtree: true };
 GM_registerMenuCommand("PWD", () => prompt("Value", mName));
+let forceRefresh = false;
 let mName = null;
 let element = null;
 let baseTitle = null;
@@ -88,10 +104,18 @@ async function main() {
         mode = "fm-chat";
     } else if (location.pathname.startsWith("/fm/pwm")) {
         mode = "fm-pwm";
+    } else if (location.pathname.startsWith("/fm/account")) {
+        mode = "fm-account";
+    } else if (location.pathname.startsWith("/fm/shares")
+        || location.pathname.startsWith("/fm/out-shares")
+        || location.pathname.startsWith("/fm/public-links")
+        || location.pathname.startsWith("/fm/file-requests")) {
+        mode = "fm-shares";
     } else if (location.pathname.startsWith("/fm/")) {
         mode = "fm";
     }
-    if (mode !== prevMode) {
+    if (mode !== prevMode || forceRefresh) {
+        forceRefresh = false;
         observer?.disconnect();
         console.debug("[MEGA-PWD]", "SwitchMode:", prevMode, "->", mode);
         prevMode = mode;
@@ -102,13 +126,13 @@ async function main() {
                 case "password":
                     config = {
                         selector: "#password-dialog-title",
-                        callback: simpleCallback.bind(null, "#password-dialog-title")
+                        callback: () => simpleCallback("#password-dialog-title")
                     };
                     break;
                 case "file":
                     config = {
                         selector: ".title-block",
-                        callback: simpleCallback.bind(null, ".title-block")
+                        callback: () => simpleCallback(".title-block")
                     };
                     break;
                 case "folder":
@@ -120,33 +144,63 @@ async function main() {
                 case "fm-contacts":
                     config = {
                         selector: ".contacts-navigation",
-                        callback: simpleCallback.bind(null, ".contacts-navigation .active")
+                        callback: () => simpleCallback(".contacts-navigation .active")
                     };
                     break;
                 case "fm-chat":
                     config = {
                         selector: ".lhp-nav",
-                        callback: simpleCallback.bind(null, ".lhp-nav-container.active")
+                        callback: () => simpleCallback(".lhp-nav-container.active")
                     };
                     break;
                 case "fm-pwm":
                     config = {
                         selector: ".primary-text",
-                        callback: simpleCallback.bind(null, ".primary-text")
+                        callback: () => simpleCallback(".primary-text")
+                    };
+                    break;
+                case "fm-account":
+                    config = {
+                        selector: ".account .lp-header",
+                        callback: () => simpleCallback(".account .settings-button.active .head-title")
+                    };
+                    break;
+                case "fm-shares":
+                    config = {
+                        selector: ".shares-tabs-bl",
+                        callback: () => simpleCallback(".shares-tab-lnk.active")
                     };
                     break;
                 case "fm":
                     config = {
                         selector: ".menu.ps",
-                        callback: simpleCallback.bind(null, ".mega-component.active")
+                        callback: () => simpleCallback(".mega-component.active .primary-text")
                     };
                     break;
             }
+            observer = new MutationObserver(config.callback);
+            if (mode === "file" || mode === "folder") {
+                while (!(element = document.querySelector(".dlkey-dialog"))) {
+                    await sleep(50);
+                }
+                config.callback();
+                observer.observe(element, OBSERVER_CONFIG);
+                if (mode === "file") {
+                    const largeChangeObserver = new MutationObserver(records => {
+                        if (records.find(
+                            it => Array.from(it.removedNodes).find(
+                                iit => iit instanceof Element && iit.classList.contains("bottom-page")))) {
+                            largeChangeObserver.disconnect();
+                            forceRefresh = true;
+                        }
+                    });
+                    largeChangeObserver.observe(document.querySelector("#startholder"), OBSERVER_CONFIG);
+                }
+            }
             while (!(element = document.querySelector(config.selector))) {
-                await sleep(10);
+                await sleep(50);
             }
             config.callback();
-            observer = new MutationObserver(config.callback);
             observer.observe(document.querySelector("title"), OBSERVER_CONFIG);
             observer.observe(element, OBSERVER_CONFIG);
         }
