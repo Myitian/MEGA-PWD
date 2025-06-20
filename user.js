@@ -5,7 +5,7 @@
 // @source       https://github.com/Myitian/MEGA-PWD
 // @author       Myitian
 // @license      MIT
-// @version      0.1
+// @version      0.2
 // @match        https://mega.nz/*
 // @grant        GM_registerMenuCommand
 // ==/UserScript==
@@ -161,7 +161,7 @@ async function main() {
                     break;
                 case "fm-account":
                     config = {
-                        selector: ".account .lp-header",
+                        selector: ".account .lp-content-wrap",
                         callback: () => simpleCallback(".account .settings-button.active .head-title")
                     };
                     break;
